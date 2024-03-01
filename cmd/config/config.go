@@ -2,7 +2,7 @@ package config
 
 import (
 	"flag"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/internal/models"
 	"github.com/joho/godotenv"
 	"github.com/kelseyhightower/envconfig"
 	"log"

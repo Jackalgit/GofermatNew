@@ -3,10 +3,10 @@ package main
 import (
 	"flag"
 	"fmt"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/cmd/config"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/database"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/handlers"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/cmd/config"
+	"github.com/Jackalgit/GofermatNew/internal/database"
+	"github.com/Jackalgit/GofermatNew/internal/handlers"
+	"github.com/Jackalgit/GofermatNew/internal/models"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
@@ -23,9 +23,6 @@ func init() {
 func main() {
 
 	flag.Parse()
-	ps := fmt.Sprintf("host=%s port=%s dbname=%s sslmode=disable TimeZone=Europe/Moscow",
-		`localhost`, `5432`, `gofermat`)
-	fmt.Println(ps)
 
 	if err := runServer(); err != nil {
 		log.Println("runServer ERROR: ", err)

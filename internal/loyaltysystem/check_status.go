@@ -1,9 +1,9 @@
 package loyaltysystem
 
 import (
-	"github.com/Jackalgit/GofermatNew/GofermatNew/cmd/config"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/jsondecoder"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/cmd/config"
+	"github.com/Jackalgit/GofermatNew/internal/jsondecoder"
+	"github.com/Jackalgit/GofermatNew/internal/models"
 	"log"
 	"net/http"
 )

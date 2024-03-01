@@ -2,7 +2,7 @@ package jsondecoder
 
 import (
 	"encoding/json"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/internal/models"
 	"io"
 )
 

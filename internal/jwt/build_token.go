@@ -2,8 +2,8 @@ package jwt
 
 import (
 	"fmt"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/cmd/config"
-	"github.com/Jackalgit/GofermatNew/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/cmd/config"
+	"github.com/Jackalgit/GofermatNew/internal/models"
 	"github.com/golang-jwt/jwt/v4"
 	"log"
 )
