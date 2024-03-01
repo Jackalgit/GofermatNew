@@ -1,0 +1,82 @@
+POST http://localhost:8080/api/user/register
+Content-Type: application/json
+
+
+{
+  "login": "Ivan",
+  "password": "qwert"
+}
+
+###
+POST http://localhost:8080/api/user/login
+Content-Type: application/json
+
+
+{
+  "login": "Ivan",
+  "password": "qwert"
+}
+
+###
+POST http://localhost:8080/api/user/orders
+Content-Type: text/plain
+#Cookie: token:
+
+12345678903
+
+###
+
+POST http://localhost:8080/api/user/orders
+Content-Type: text/plain
+#Cookie: token:
+
+12389034344
+
+###
+POST http://localhost:8080/api/user/orders
+Content-Type: text/plain
+#Cookie: token:
+
+2377225624
+
+###
+
+
+GET http://localhost:8080/api/user/orders
+Content-Type: text/plain
+
+###
+
+POST http://localhost:8080/api/user/balance/withdraw
+Content-Type: application/json
+
+{
+  "order": "2377225624",
+  "sum": 751
+}
+
+###
+
+POST http://localhost:8080/api/user/balance/withdraw
+Content-Type: application/json
+
+{
+  "order": "12389034344",
+  "sum": 51
+}
+
+###
+GET http://localhost:8080/api/user/balance
+Content-Type: text/plain
+
+###
+
+GET http://localhost:8080/api/user/withdrawals
+
+###
+
+#
+#GET http://localhost:8080/ping
+#Content-Type: text/plain
+#
+####
