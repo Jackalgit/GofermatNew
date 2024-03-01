@@ -151,6 +151,7 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int)
 			return userIDUniqueOrderError
 
 		}
+		log.Println("[ExecContext] %q", err)
 		return fmt.Errorf("[ExecContext] %q", err)
 	}
 

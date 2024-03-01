@@ -48,6 +48,7 @@ func runServer() error {
 	router.HandleFunc("/api/user/withdrawals", handler.Withdrawals).Methods("GET")
 
 	if err := http.ListenAndServe(config.Config.ServerPort, router); err != nil {
+		log.Println("[ListenAndServe] запустить сервер: %q", err)
 		return fmt.Errorf("[ListenAndServe] запустить сервер: %q", err)
 
 	}
