@@ -300,19 +300,18 @@ func (d DataBase) SumWithdrawn(ctx context.Context, userID string) (float64, err
 		"SELECT SUM(sumPoint) AS sum_sumPoint FROM userwithdraw WHERE userID = $1", userID,
 	)
 
-	var sumSumPoint float64
+	var sumSumPoint sql.NullFloat64
 	err := row.Scan(&sumSumPoint)
 	if err != nil {
 		log.Printf("[Scan] %q", err)
 		return 0, fmt.Errorf("[Scan] sumSumPointl %q", userID)
 	}
 
-	//if !sumSumPoint.Valid {
-	//	SQLNullValidError := models.NewSQLNullValidError(fmt.Sprintf("Упользователя нет списаний %q", userID))
-	//	return 0, SQLNullValidError
-	//}
+	if !sumSumPoint.Valid {
+		return 0, nil
+	}
 
-	return sumSumPoint, nil
+	return sumSumPoint.Float64, nil
 
 }
 
