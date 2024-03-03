@@ -278,6 +278,7 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not read body", http.StatusBadRequest)
 		return
 	}
+	log.Println(withdrawRequest)
 
 	if withdrawRequest.Order == "" || withdrawRequest.Sum == 0 {
 		http.Error(w, "номер заказа или сумма к списанию не передана", http.StatusBadRequest)
