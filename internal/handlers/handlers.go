@@ -237,6 +237,7 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	current := sumAccurual - sumSumPoint
+	log.Println(current)
 
 	balance := models.Balance{Current: current, Withdrawn: sumSumPoint}
 
