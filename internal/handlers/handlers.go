@@ -209,6 +209,8 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
+	log.Println(sumAccurual)
+
 	if err != nil {
 		var SQLNullValidError *models.SQLNullValidError
 		if errors.As(err, &SQLNullValidError) {
@@ -221,6 +223,8 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sumSumPoint, err := g.Storage.SumWithdrawn(ctx, userID)
+	log.Println(sumSumPoint)
+
 	if err != nil {
 		var SQLNullValidError *models.SQLNullValidError
 		if errors.As(err, &SQLNullValidError) {
@@ -279,7 +283,6 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "номер заказа или сумма к списанию не передана", http.StatusBadRequest)
 		return
 	}
-	log.Println(withdrawRequest)
 
 	numOrderInt, err := strconv.Atoi(withdrawRequest.Order)
 	if err != nil {
