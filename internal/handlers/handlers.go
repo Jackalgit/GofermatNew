@@ -228,14 +228,16 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 
 	if err != nil {
 		log.Println(err)
-		var SQLNullValidError *models.SQLNullValidError
-		if errors.As(err, &SQLNullValidError) {
-			http.Error(w, err.Error(), http.StatusNoContent)
-			return
-		} else {
-			http.Error(w, "повторите запрос позже", http.StatusNoContent)
-			return
-		}
+		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		return
+		//var SQLNullValidError *models.SQLNullValidError
+		//if errors.As(err, &SQLNullValidError) {
+		//	http.Error(w, err.Error(), http.StatusNoContent)
+		//	return
+		//} else {
+		//	http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		//	return
+		//}
 	}
 
 	current := sumAccurual - sumSumPoint
