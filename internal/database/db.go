@@ -282,7 +282,7 @@ func (d DataBase) SumAccrual(ctx context.Context, userID string) (float64, error
 	}
 
 	if !sumAccurual.Valid {
-		SqlNullValidError := models.NewSqlNullValidError(fmt.Sprintf("Упользователя нет начислений %q", userID))
+		SqlNullValidError := models.NewSQLNullValidError(fmt.Sprintf("Упользователя нет начислений %q", userID))
 		return 0, SqlNullValidError
 	}
 
@@ -308,7 +308,7 @@ func (d DataBase) SumWithdrawn(ctx context.Context, userID string) (float64, err
 	}
 
 	if !sumSumPoint.Valid {
-		SqlNullValidError := models.NewSqlNullValidError(fmt.Sprintf("Упользователя нет списаний %q", userID))
+		SqlNullValidError := models.NewSQLNullValidError(fmt.Sprintf("Упользователя нет списаний %q", userID))
 		return 0, SqlNullValidError
 	}
 

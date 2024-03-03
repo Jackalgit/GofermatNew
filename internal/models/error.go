@@ -52,14 +52,14 @@ func (UO *UniqueOrderError) Error() string {
 	return UO.NumOrder
 }
 
-type SqlNullValidError struct {
+type SQLNullValidError struct {
 	Value string
 }
 
-func NewSqlNullValidError(numOrder string) error {
-	return &SqlNullValidError{Value: numOrder}
+func NewSQLNullValidError(numOrder string) error {
+	return &SQLNullValidError{Value: numOrder}
 }
 
-func (SNV *SqlNullValidError) Error() string {
+func (SNV *SQLNullValidError) Error() string {
 	return SNV.Value
 }

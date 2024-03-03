@@ -50,13 +50,14 @@ func CheckStatusOrder(orderList []models.OrderStatus) ([]models.OrderStatus, map
 				response.Body.Close()
 				continue
 			}
-			response.Body.Close()
 
 			responsLoyaltySystem, err := jsondecoder.ResponsLoyaltySystem(response.Body)
 			if err != nil {
 				log.Printf("[ResponsLoyaltySystem], %q", err)
 				return nil, nil, fmt.Errorf("[ResponsLoyaltySystem] %q", err)
 			}
+			response.Body.Close()
+
 			if v.Status != responsLoyaltySystem.Status {
 				dictOrderStatusForUpdateDB[v.NumOrder] = models.OrderStatus{
 					Status:  responsLoyaltySystem.Status,
