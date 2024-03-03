@@ -51,3 +51,15 @@ func NewUniqueOrderError(numOrder string) error {
 func (UO *UniqueOrderError) Error() string {
 	return UO.NumOrder
 }
+
+type SqlNullValidError struct {
+	Value string
+}
+
+func NewSqlNullValidError(numOrder string) error {
+	return &SqlNullValidError{Value: numOrder}
+}
+
+func (SNV *SqlNullValidError) Error() string {
+	return SNV.Value
+}

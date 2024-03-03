@@ -19,13 +19,17 @@ import (
 	"time"
 )
 
+const (
+	ctxTimeout = 1 * time.Second
+)
+
 type DataBase struct {
 	conn *sql.DB
 }
 
 func NewDataBase() DataBase {
 
-	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
 	defer cancel()
 
 	conf, err := pgxpool.ParseConfig(config.Config.DatabaseDSN)
@@ -57,8 +61,14 @@ func NewDataBase() DataBase {
 	}
 	//db.ExecContext(ctx, `SET timezone = 'Europe/Moscow'`)
 
-	db.ExecContext(ctx, `CREATE UNIQUE INDEX login_idx ON userlogin (login)`)
-	db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userinfo (numOrder)`)
+	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX login_idx ON userlogin (login)`)
+	if err != nil {
+		log.Printf("[ExecContext] Не удалось создать уникальный индекс login_idx в таблице userlogin: %q", err)
+	}
+	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userinfo (numOrder)`)
+	if err != nil {
+		log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userinfo: %q", err)
+	}
 
 	query = `CREATE TABLE IF NOT EXISTS userwithdraw (userID VARCHAR (255), numOrder BIGINT unique, sumPoint FLOAT, processed_at TIMESTAMPTZ)`
 
@@ -66,7 +76,10 @@ func NewDataBase() DataBase {
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу userwithdraw в база данных: %q", err)
 	}
-	db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userwithdraw (numOrder)`)
+	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userwithdraw (numOrder)`)
+	if err != nil {
+		log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userwithdraw: %q", err)
+	}
 
 	return DataBase{conn: db}
 }
@@ -75,7 +88,7 @@ func (d DataBase) RegisterUser(ctx context.Context, userID uuid.UUID, login stri
 
 	query := `INSERT INTO userlogin (userID, login, hashed_password) VALUES($1, $2, $3)`
 
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	stmt, err := d.conn.PrepareContext(ctx, query)
@@ -100,7 +113,7 @@ func (d DataBase) RegisterUser(ctx context.Context, userID uuid.UUID, login stri
 
 func (d DataBase) LoginUser(ctx context.Context, login string) (string, string) {
 
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	row := d.conn.QueryRowContext(
@@ -126,7 +139,7 @@ func (d DataBase) LoginUser(ctx context.Context, login string) (string, string) 
 
 func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int) error {
 
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	currentTime := time.Now().Format(time.RFC3339)
@@ -159,7 +172,8 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int)
 }
 
 func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) string {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	row := d.conn.QueryRowContext(
@@ -183,7 +197,8 @@ func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) string 
 }
 
 func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.OrderStatus {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	var orderList []models.OrderStatus
@@ -222,7 +237,8 @@ func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.Orde
 }
 
 func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map[string]models.OrderStatus) {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	query := `UPDATE userinfo SET status = $1, accrual = $2  WHERE numOrder = $3`
@@ -246,8 +262,9 @@ func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map
 
 }
 
-func (d DataBase) SumAccrual(ctx context.Context, userID string) float64 {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+func (d DataBase) SumAccrual(ctx context.Context, userID string) (float64, error) {
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	row := d.conn.QueryRowContext(
@@ -261,18 +278,21 @@ func (d DataBase) SumAccrual(ctx context.Context, userID string) float64 {
 	err := row.Scan(&sumAccurual)
 	if err != nil {
 		log.Printf("[row Scan] Не удалось прeобразовать данные: %q", err)
+		return 0, fmt.Errorf("[Scan] sumAccurual %q", userID)
 	}
 
 	if !sumAccurual.Valid {
-		return 0
+		SqlNullValidError := models.NewSqlNullValidError(fmt.Sprintf("Упользователя нет начислений %q", userID))
+		return 0, SqlNullValidError
 	}
 
-	return sumAccurual.Float64
+	return sumAccurual.Float64, nil
 
 }
 
-func (d DataBase) SumWithdrawn(ctx context.Context, userID string) float64 {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+func (d DataBase) SumWithdrawn(ctx context.Context, userID string) (float64, error) {
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	row := d.conn.QueryRowContext(
@@ -283,20 +303,22 @@ func (d DataBase) SumWithdrawn(ctx context.Context, userID string) float64 {
 	var sumSumPoint sql.NullFloat64
 	err := row.Scan(&sumSumPoint)
 	if err != nil {
-		log.Printf("[Scan] %v", err)
+		log.Printf("[Scan] %q", err)
+		return 0, fmt.Errorf("[Scan] sumSumPointl %q", userID)
 	}
 
 	if !sumSumPoint.Valid {
-		return 0
+		SqlNullValidError := models.NewSqlNullValidError(fmt.Sprintf("Упользователя нет списаний %q", userID))
+		return 0, SqlNullValidError
 	}
 
-	return sumSumPoint.Float64
+	return sumSumPoint.Float64, nil
 
 }
 
 func (d DataBase) WithdrawUser(ctx context.Context, userID string, numOrder int, sumPoint float64) error {
 
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	query := `INSERT INTO userwithdraw (userID, numOrder, sumPoint, processed_at) VALUES($1, $2, $3, $4)`
@@ -326,7 +348,8 @@ func (d DataBase) WithdrawUser(ctx context.Context, userID string, numOrder int,
 }
 
 func (d DataBase) WithdrawalsUser(ctx context.Context, userID string) []models.Withdrawals {
-	ctx, cancel := context.WithTimeout(ctx, 1*time.Second)
+
+	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
 
 	var withdrawalsList []models.Withdrawals

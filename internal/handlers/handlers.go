@@ -121,11 +121,16 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		orderListChekStatus, dictOrderStatusForUpdateDB := loyaltysystem.CheckStatusOrder(orderList)
+		orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
+		if err != nil {
+			w.WriteHeader(http.StatusNoContent)
+			w.Write([]byte("Повторите запрос позже"))
+			return
+		}
 
 		g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
 
-		responsListJSON, err := json.Marshal(orderListChekStatus)
+		responsListJSON, err := json.Marshal(orderListCheckStatus)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -203,9 +208,29 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	sumAccurual := g.Storage.SumAccrual(ctx, userID)
+	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
+	if err != nil {
+		var SqlNullValidError models.SqlNullValidError
+		if errors.As(err, SqlNullValidError) {
+			http.Error(w, err.Error(), http.StatusNoContent)
+			return
+		} else {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
+	}
 
-	sumSumPoint := g.Storage.SumWithdrawn(ctx, userID)
+	sumSumPoint, err := g.Storage.SumWithdrawn(ctx, userID)
+	if err != nil {
+		var SqlNullValidError models.SqlNullValidError
+		if errors.As(err, SqlNullValidError) {
+			http.Error(w, err.Error(), http.StatusNoContent)
+			return
+		} else {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
+	}
 
 	current := sumAccurual - sumSumPoint
 
@@ -269,11 +294,19 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	orderList := g.Storage.GetListOrder(ctx, userID)
 
-	_, dictOrderStatusForUpdateDB := loyaltysystem.CheckStatusOrder(orderList)
+	_, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
+	if err != nil {
+		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		return
+	}
 
 	g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
 
-	sumAccurual := g.Storage.SumAccrual(ctx, userID)
+	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
+	if err != nil {
+		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		return
+	}
 
 	if withdrawRequest.Sum > sumAccurual {
 		http.Error(w, "на счету недостаточно средств", http.StatusPaymentRequired)
