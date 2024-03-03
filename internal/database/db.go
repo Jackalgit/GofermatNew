@@ -76,10 +76,10 @@ func NewDataBase() DataBase {
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу userwithdraw в база данных: %q", err)
 	}
-	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userwithdraw (numOrder)`)
-	if err != nil {
-		log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userwithdraw: %q", err)
-	}
+	//_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userwithdraw (numOrder)`)
+	//if err != nil {
+	//	log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userwithdraw: %q", err)
+	//}
 
 	return DataBase{conn: db}
 }
