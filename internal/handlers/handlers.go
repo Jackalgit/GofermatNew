@@ -212,28 +212,30 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 	log.Println(sumAccurual)
 
 	if err != nil {
-		//var SQLNullValidError *models.SQLNullValidError
-		//if errors.As(err, &SQLNullValidError) {
-		//	http.Error(w, err.Error(), http.StatusNoContent)
-		//	return
-		//} else {
-		//	http.Error(w, "повторите запрос позже", http.StatusNoContent)
-		//	return
-		//}
+		log.Println(err)
+		var SQLNullValidError *models.SQLNullValidError
+		if errors.As(err, &SQLNullValidError) {
+			http.Error(w, err.Error(), http.StatusNoContent)
+			return
+		} else {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
 	}
 
 	sumSumPoint, err := g.Storage.SumWithdrawn(ctx, userID)
 	log.Println(sumSumPoint)
 
 	if err != nil {
-		//var SQLNullValidError *models.SQLNullValidError
-		//if errors.As(err, &SQLNullValidError) {
-		//	http.Error(w, err.Error(), http.StatusNoContent)
-		//	return
-		//} else {
-		//	http.Error(w, "повторите запрос позже", http.StatusNoContent)
-		//	return
-		//}
+		log.Println(err)
+		var SQLNullValidError *models.SQLNullValidError
+		if errors.As(err, &SQLNullValidError) {
+			http.Error(w, err.Error(), http.StatusNoContent)
+			return
+		} else {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
 	}
 
 	current := sumAccurual - sumSumPoint
