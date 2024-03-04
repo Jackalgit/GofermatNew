@@ -59,7 +59,6 @@ func NewDataBase() DataBase {
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу userinfo в база данных: %q", err)
 	}
-	//db.ExecContext(ctx, `SET timezone = 'Europe/Moscow'`)
 
 	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX login_idx ON userlogin (login)`)
 	if err != nil {
@@ -76,10 +75,6 @@ func NewDataBase() DataBase {
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу userwithdraw в база данных: %q", err)
 	}
-	//_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userwithdraw (numOrder)`)
-	//if err != nil {
-	//	log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userwithdraw: %q", err)
-	//}
 
 	return DataBase{conn: db}
 }
@@ -111,7 +106,7 @@ func (d DataBase) RegisterUser(ctx context.Context, userID uuid.UUID, login stri
 	return nil
 }
 
-func (d DataBase) LoginUser(ctx context.Context, login string) (string, string) {
+func (d DataBase) LoginUser(ctx context.Context, login string) (string, string, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -128,13 +123,14 @@ func (d DataBase) LoginUser(ctx context.Context, login string) (string, string) 
 	err := row.Scan(&userID, &hashPassInDB)
 	if err != nil {
 		log.Printf("[row Scan] Не удалось прeобразовать данные: %q", err)
+		return "", "", fmt.Errorf("[row Scan] Не удалось прeобразовать данные: %q", err)
 	}
 
 	if !hashPassInDB.Valid {
-		return "", ""
+		return "", "", nil
 	}
 
-	return userID, hashPassInDB.String
+	return userID, hashPassInDB.String, nil
 }
 
 func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int) error {
@@ -157,7 +153,10 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int)
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 
-			userIDnumOrder := d.GetUserIDtoNumOrder(ctx, numOrder)
+			userIDnumOrder, err := d.GetUserIDtoNumOrder(ctx, numOrder)
+			if err != nil {
+				return fmt.Errorf("[GetUserIDtoNumOrder] %q", err)
+			}
 
 			userIDUniqueOrderError := models.NewUserIDUniqueOrderError(userIDnumOrder)
 
@@ -171,7 +170,7 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int)
 	return nil
 }
 
-func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) string {
+func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) (string, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -185,18 +184,18 @@ func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) string 
 	err := row.Scan(&userID)
 	if err != nil {
 		log.Printf("[Scan] %v", err)
-		return ""
+		return "", fmt.Errorf("[Scan] Не удалось прeобразовать данные: %q", err)
 	}
 
 	if !userID.Valid {
-		return ""
+		return "", nil
 	}
 
-	return userID.String
+	return userID.String, nil
 
 }
 
-func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.OrderStatus {
+func (d DataBase) GetListOrder(ctx context.Context, userID string) ([]models.OrderStatus, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -211,7 +210,7 @@ func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.Orde
 	)
 	if err != nil {
 		log.Printf("[QueryContext] Не удалось получить данные по userID: %q", err)
-		return nil
+		return nil, fmt.Errorf("[QueryContext] Не удалось получить данные по userID: %q", err)
 	}
 	defer rows.Close()
 
@@ -220,7 +219,7 @@ func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.Orde
 		err = rows.Scan(&orderInfo.NumOrder, &orderInfo.Status, &orderInfo.Accrual, &orderInfo.UploadedAt)
 		if err != nil {
 			log.Printf("[rows Scan] Не удалось собрать orderInfo: %q", err)
-			return nil
+			return nil, fmt.Errorf("[rows Scan] Не удалось собрать orderInfo: %q", err)
 		}
 
 		orderList = append(orderList, orderInfo)
@@ -229,14 +228,14 @@ func (d DataBase) GetListOrder(ctx context.Context, userID string) []models.Orde
 	err = rows.Err()
 	if err != nil {
 		log.Printf("[rows Err]: %q", err)
-		return nil
+		return nil, fmt.Errorf("[rows Err]: %q", err)
 	}
 
-	return orderList
+	return orderList, nil
 
 }
 
-func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map[string]models.OrderStatus) {
+func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map[string]models.OrderStatus) error {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -245,21 +244,25 @@ func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map
 
 	stmt, err := d.conn.PrepareContext(ctx, query)
 	if err != nil {
-		log.Printf("[PrepareContext] %s", err)
+		log.Printf("[PrepareContext] %q", err)
+		return fmt.Errorf("[PrepareContext] %q", err)
 	}
 	defer stmt.Close()
 	for numOrder, v := range dictOrderStatus {
 		numOrderInt, err := strconv.Atoi(numOrder)
 		if err != nil {
 			log.Printf("[strconv.Atoi] %q", err)
+			return fmt.Errorf("[strconv.Atoi] %q", err)
 		}
 
 		_, err = stmt.ExecContext(ctx, v.Status, v.Accrual, numOrderInt)
 		if err != nil {
 			log.Printf("[ExecContext] %q", err)
+			return fmt.Errorf("[ExecContext] %q", err)
 		}
 	}
 
+	return nil
 }
 
 func (d DataBase) SumAccrual(ctx context.Context, userID string) (float64, error) {

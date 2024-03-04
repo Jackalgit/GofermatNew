@@ -14,6 +14,7 @@ import (
 	"github.com/Jackalgit/GofermatNew/internal/jwt"
 	"github.com/Jackalgit/GofermatNew/internal/loyaltysystem"
 	"github.com/Jackalgit/GofermatNew/internal/models"
+	"github.com/Jackalgit/GofermatNew/internal/util"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
 	"github.com/theplant/luhn"
@@ -75,7 +76,11 @@ func (g *GoferMat) Login(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
 
-	userID, hashPassInDB := g.Storage.LoginUser(ctx, request.Login)
+	userID, hashPassInDB, err := g.Storage.LoginUser(ctx, request.Login)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	if hashPassInDB == "" {
 		http.Error(w, "логин не существует", http.StatusUnauthorized)
@@ -114,7 +119,11 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if r.Method == http.MethodGet {
-		orderList := g.Storage.GetListOrder(ctx, userID)
+		orderList, err := g.Storage.GetListOrder(ctx, userID)
+		if err != nil {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
 
 		if len(orderList) == 0 {
 			w.WriteHeader(http.StatusNoContent)
@@ -123,12 +132,15 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 		orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
 		if err != nil {
-			w.WriteHeader(http.StatusNoContent)
-			w.Write([]byte("Повторите запрос позже"))
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
 			return
 		}
 
-		g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+		err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+		if err != nil {
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
+		}
 
 		responsListJSON, err := json.Marshal(orderListCheckStatus)
 		if err != nil {
@@ -178,6 +190,8 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 				}
 			} else {
 				log.Printf("[LoadOrderNum] %q", err)
+				http.Error(w, "повторите запрос позже", http.StatusNoContent)
+				return
 			}
 		}
 		w.WriteHeader(http.StatusAccepted)
@@ -282,6 +296,11 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if !util.CheckNumOrder(withdrawRequest.Order) {
+		http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
+		return
+	}
+
 	numOrderInt, err := strconv.Atoi(withdrawRequest.Order)
 	if err != nil {
 		http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
@@ -293,7 +312,11 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	orderList := g.Storage.GetListOrder(ctx, userID)
+	orderList, err := g.Storage.GetListOrder(ctx, userID)
+	if err != nil {
+		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		return
+	}
 
 	_, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
 	if err != nil {
@@ -301,7 +324,11 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+	err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+	if err != nil {
+		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		return
+	}
 
 	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
 	if err != nil {

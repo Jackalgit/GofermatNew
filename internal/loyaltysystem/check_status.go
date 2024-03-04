@@ -38,11 +38,6 @@ func CheckStatusOrder(orderList []models.OrderStatus) ([]models.OrderStatus, map
 				return nil, nil, fmt.Errorf("[Do] Не удалось сделать запрос: %q", err)
 			}
 
-			//response, err := http.Get(URLRequest)
-			//if err != nil {
-			//	log.Printf("[Get], %q", err)
-			//	return nil, nil, fmt.Errorf("[GetURLRequest] %q", err)
-			//}
 			if response.StatusCode == 204 {
 				orderListCheckStatus = append(
 					orderListCheckStatus,
