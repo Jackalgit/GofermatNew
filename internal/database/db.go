@@ -127,7 +127,7 @@ func (d DataBase) LoginUser(ctx context.Context, login string) (string, string, 
 	}
 
 	if !hashPassInDB.Valid {
-		return "", "", fmt.Errorf("Пароль не найден")
+		return "", "", fmt.Errorf("пароль не найден")
 	}
 
 	return userID, hashPassInDB.String, nil
@@ -163,7 +163,7 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder stri
 			return userIDUniqueOrderError
 
 		}
-		log.Println("[ExecContext]", err)
+		log.Println("[ExecContext LoadOrderNum]", err)
 		return fmt.Errorf("[ExecContext] %q", err)
 	}
 
@@ -257,7 +257,7 @@ func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map
 
 		_, err = stmt.ExecContext(ctx, v.Status, v.Accrual, numOrderInt)
 		if err != nil {
-			log.Printf("[ExecContext] %q", err)
+			log.Printf("[ExecContext UpdateOrderStatusInDB] %q", err)
 			return fmt.Errorf("[ExecContext] %q", err)
 		}
 	}

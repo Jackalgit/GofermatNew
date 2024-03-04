@@ -49,7 +49,7 @@ func runServer() error {
 
 	if err := http.ListenAndServe(config.Config.ServerPort, router); err != nil {
 		log.Println("[ListenAndServe]:", err)
-		return fmt.Errorf("[ListenAndServe]:", err)
+		return fmt.Errorf("[ListenAndServe]: %q", err)
 
 	}
 
