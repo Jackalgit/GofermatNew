@@ -164,17 +164,6 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		//numOrderInt, err := strconv.Atoi(string(numOrder))
-		//if err != nil {
-		//	http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
-		//	return
-		//}
-		//
-		//if !luhn.Valid(numOrderInt) {
-		//	http.Error(w, "ошибка в номере заказа", http.StatusUnprocessableEntity)
-		//	return
-		//}
-
 		valid, err := luhn.IsValid(string(numOrder))
 		if err != nil {
 			http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
@@ -300,12 +289,6 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "номер заказа или сумма к списанию не передана", http.StatusBadRequest)
 		return
 	}
-
-	//numOrderInt, err := strconv.Atoi(withdrawRequest.Order)
-	//if err != nil {
-	//	http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
-	//	return
-	//}
 
 	valid, err := luhn.IsValid(withdrawRequest.Order)
 	if err != nil {

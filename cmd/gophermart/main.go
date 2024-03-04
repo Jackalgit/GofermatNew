@@ -32,8 +32,13 @@ func main() {
 
 func runServer() error {
 
+	storage, err := database.NewDataBase()
+	if err != nil {
+		return fmt.Errorf("ошибка базы данных: %q", err)
+	}
+
 	handler := &handlers.GoferMat{
-		Storage:         database.NewDataBase(),
+		Storage:         storage,
 		DictUserIDToken: models.NewDictUserIDToken(),
 	}
 

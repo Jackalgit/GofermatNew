@@ -26,7 +26,7 @@ type DataBase struct {
 	conn *sql.DB
 }
 
-func NewDataBase() DataBase {
+func NewDataBase() (DataBase, error) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), ctxTimeout)
 	defer cancel()
@@ -34,11 +34,13 @@ func NewDataBase() DataBase {
 	conf, err := pgxpool.ParseConfig(config.Config.DatabaseDSN)
 	if err != nil {
 		log.Printf("[ParseConfig] %q", err)
+		return DataBase{}, fmt.Errorf("[ParseConfig] %q", err)
 	}
 
 	db, err := sql.Open("pgx", stdlib.RegisterConnConfig(conf.ConnConfig))
 	if err != nil {
 		log.Printf("[Open DB] Не удалось установить соединение с базой данных: %q", err)
+		return DataBase{}, fmt.Errorf("[Open DB] Не удалось установить соединение с базой данных: %q", err)
 	}
 
 	query := `CREATE TABLE IF NOT EXISTS userlogin (userID VARCHAR (255) not null unique, login VARCHAR (255) not null unique, hashed_password VARCHAR (255) not null)`
@@ -46,6 +48,7 @@ func NewDataBase() DataBase {
 	_, err = db.ExecContext(ctx, query)
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу loging в база данных: %q", err)
+		return DataBase{}, fmt.Errorf("[Create Table] Не удалось создать таблицу loging в база данных: %q", err)
 	}
 
 	// PostgreSQL хранит timestamptz значение в формате UTC, но когда данные достаются из timestamptz столбца,
@@ -57,25 +60,33 @@ func NewDataBase() DataBase {
 	_, err = db.ExecContext(ctx, query)
 	if err != nil {
 		log.Printf("[Create Table] Не удалось создать таблицу userinfo в база данных: %q", err)
+		return DataBase{}, fmt.Errorf("[Create Table] Не удалось создать таблицу userinfo в база данных: %q", err)
+
 	}
 
 	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX login_idx ON userlogin (login)`)
 	if err != nil {
-		log.Printf("[ExecContext] Не удалось создать уникальный индекс login_idx в таблице userlogin: %q", err)
+		log.Printf("[ExecContext] Не удалось создать индекс login_idx в userlogin: %q", err)
+		return DataBase{}, fmt.Errorf("[ExecContext] Не удалось создать индекс login_idx в userlogin: %q", err)
+
 	}
 	_, err = db.ExecContext(ctx, `CREATE UNIQUE INDEX numOrder_idx ON userinfo (numOrder)`)
 	if err != nil {
-		log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userinfo: %q", err)
+		log.Printf("[ExecContext] Не удалось создать индекс numOrder_idx в таблице userinfo: %q", err)
+		return DataBase{}, fmt.Errorf("[ExecContext] Не удалось создать индекс numOrder_idx в userinfo: %q", err)
+
 	}
 
 	query = `CREATE TABLE IF NOT EXISTS userwithdraw (userID VARCHAR (255), numOrder VARCHAR (255), sumPoint FLOAT, processed_at TIMESTAMPTZ)`
 
 	_, err = db.ExecContext(ctx, query)
 	if err != nil {
-		log.Printf("[Create Table] Не удалось создать таблицу userwithdraw в база данных: %q", err)
+		log.Printf("[Create Table] Не удалось создать таблицу userwithdraw: %q", err)
+		return DataBase{}, fmt.Errorf("[Create Table] Не удалось создать таблицу userwithdraw: %q", err)
+
 	}
 
-	return DataBase{conn: db}
+	return DataBase{conn: db}, nil
 }
 
 func (d DataBase) RegisterUser(ctx context.Context, userID uuid.UUID, login string, hashPass string) error {
@@ -248,11 +259,6 @@ func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map
 	}
 	defer stmt.Close()
 	for numOrder, v := range dictOrderStatus {
-		//numOrderInt, err := strconv.Atoi(numOrder)
-		//if err != nil {
-		//	log.Printf("[strconv.Atoi] %q", err)
-		//	return fmt.Errorf("[strconv.Atoi] %q", err)
-		//}
 
 		_, err = stmt.ExecContext(ctx, v.Status, v.Accrual, numOrder)
 		if err != nil {
