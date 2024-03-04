@@ -7,21 +7,18 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
+	luhn "github.com/EClaesson/go-luhn"
 	"github.com/Jackalgit/GofermatNew/cmd/config"
 	"github.com/Jackalgit/GofermatNew/internal/database"
 	"github.com/Jackalgit/GofermatNew/internal/jsondecoder"
 	"github.com/Jackalgit/GofermatNew/internal/jwt"
 	"github.com/Jackalgit/GofermatNew/internal/loyaltysystem"
 	"github.com/Jackalgit/GofermatNew/internal/models"
-	"github.com/Jackalgit/GofermatNew/internal/util"
 	"github.com/google/uuid"
 	_ "github.com/jackc/pgx/v5/stdlib"
-	"github.com/theplant/luhn"
 	"io"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -121,7 +118,7 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 	if r.Method == http.MethodGet {
 		orderList, err := g.Storage.GetListOrder(ctx, userID)
 		if err != nil {
-			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -132,13 +129,13 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 
 		orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
 		if err != nil {
-			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
 		if err != nil {
-			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
@@ -167,18 +164,28 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 
-		numOrderInt, err := strconv.Atoi(string(numOrder))
+		//numOrderInt, err := strconv.Atoi(string(numOrder))
+		//if err != nil {
+		//	http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
+		//	return
+		//}
+		//
+		//if !luhn.Valid(numOrderInt) {
+		//	http.Error(w, "ошибка в номере заказа", http.StatusUnprocessableEntity)
+		//	return
+		//}
+
+		valid, err := luhn.IsValid(string(numOrder))
 		if err != nil {
 			http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
 			return
 		}
-
-		if !luhn.Valid(numOrderInt) {
-			http.Error(w, "ошибка в номере заказа", http.StatusUnprocessableEntity)
+		if !valid {
+			http.Error(w, "неверный номер заказа", http.StatusUnprocessableEntity)
 			return
 		}
 
-		if err := g.Storage.LoadOrderNum(ctx, userID, numOrderInt); err != nil {
+		if err := g.Storage.LoadOrderNum(ctx, userID, string(numOrder)); err != nil {
 			var UserOrderUnique *models.UserIDUniqueOrderError
 			if errors.As(err, &UserOrderUnique) {
 				if err.Error() == userID {
@@ -223,7 +230,6 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 	}
 
 	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
-	log.Println(sumAccurual)
 
 	if err != nil {
 		log.Println(err)
@@ -232,27 +238,27 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusNoContent)
 			return
 		} else {
-			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			log.Println(err)
+			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	}
 
 	sumSumPoint, err := g.Storage.SumWithdrawn(ctx, userID)
-	log.Println(sumSumPoint)
 
 	if err != nil {
 		log.Println(err)
-		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	current := sumAccurual - sumSumPoint
-	log.Println(current)
 
 	balance := models.Balance{Current: current, Withdrawn: sumSumPoint}
 
 	responsBalance, err := json.Marshal(balance)
 	if err != nil {
+		log.Println(err)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -289,50 +295,49 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "not read body", http.StatusBadRequest)
 		return
 	}
-	log.Println(withdrawRequest)
 
 	if withdrawRequest.Order == "" || withdrawRequest.Sum == 0 {
 		http.Error(w, "номер заказа или сумма к списанию не передана", http.StatusBadRequest)
 		return
 	}
 
-	if !util.CheckNumOrder(withdrawRequest.Order) {
-		http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
-		return
-	}
+	//numOrderInt, err := strconv.Atoi(withdrawRequest.Order)
+	//if err != nil {
+	//	http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
+	//	return
+	//}
 
-	numOrderInt, err := strconv.Atoi(withdrawRequest.Order)
+	valid, err := luhn.IsValid(withdrawRequest.Order)
 	if err != nil {
 		http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
 		return
 	}
-
-	if !luhn.Valid(numOrderInt) {
+	if !valid {
 		http.Error(w, "неверный номер заказа", http.StatusUnprocessableEntity)
 		return
 	}
 
 	orderList, err := g.Storage.GetListOrder(ctx, userID)
 	if err != nil {
-		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	_, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
 	if err != nil {
-		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
 	if err != nil {
-		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	sumAccurual, err := g.Storage.SumAccrual(ctx, userID)
 	if err != nil {
-		http.Error(w, "повторите запрос позже", http.StatusNoContent)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
@@ -342,10 +347,10 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 
 	}
 
-	if err := g.Storage.WithdrawUser(ctx, userID, numOrderInt, withdrawRequest.Sum); err != nil {
+	if err := g.Storage.WithdrawUser(ctx, userID, withdrawRequest.Order, withdrawRequest.Sum); err != nil {
 		var UniqueOrderError *models.UniqueOrderError
 		if errors.As(err, &UniqueOrderError) {
-			if err.Error() == fmt.Sprint(numOrderInt) {
+			if err.Error() == withdrawRequest.Order {
 				w.WriteHeader(http.StatusBadRequest)
 				return
 			}

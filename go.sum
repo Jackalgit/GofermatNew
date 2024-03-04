@@ -1,3 +1,5 @@
+github.com/EClaesson/go-luhn v0.0.0-20210207103312-b1c12d658b70 h1:vhtZZzKdaDi82ozLwraWvhxJGIPz3dcUzxs/GGk8tGs=
+github.com/EClaesson/go-luhn v0.0.0-20210207103312-b1c12d658b70/go.mod h1:WTuslhl/WWQLOzsLQL990kRSMa1xaSYYgO4BF1E1geE=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/golang-jwt/jwt/v4 v4.5.0 h1:7cYmW1XlMY7h7ii7UhUyChSgS5wUJEnm9uZVTGqOWzg=
 github.com/golang-jwt/jwt/v4 v4.5.0/go.mod h1:m21LjoU+eqJr34lmDMbreY2eSTRJ1cv77w39/MY0Ch0=

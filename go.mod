@@ -3,6 +3,7 @@ module github.com/Jackalgit/GofermatNew
 go 1.21.5
 
 require (
+	github.com/EClaesson/go-luhn v0.0.0-20210207103312-b1c12d658b70 // indirect
 	github.com/golang-jwt/jwt/v4 v4.5.0 // indirect
 	github.com/google/uuid v1.6.0 // indirect
 	github.com/gorilla/mux v1.8.1 // indirect

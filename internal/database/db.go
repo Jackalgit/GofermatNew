@@ -53,7 +53,7 @@ func NewDataBase() DataBase {
 	// PostgreSQL преобразует значение UTC обратно во значение времени часового пояса,
 	// установленное сервером базы данных, пользователем или текущим подключением к базе данных.
 
-	query = `CREATE TABLE IF NOT EXISTS userinfo (userID VARCHAR (255), numOrder BIGINT unique, status VARCHAR (255), accrual FLOAT, uploaded_at TIMESTAMPTZ)`
+	query = `CREATE TABLE IF NOT EXISTS userinfo (userID VARCHAR (255), numOrder VARCHAR (255), status VARCHAR (255), accrual FLOAT, uploaded_at TIMESTAMPTZ)`
 
 	_, err = db.ExecContext(ctx, query)
 	if err != nil {
@@ -69,7 +69,7 @@ func NewDataBase() DataBase {
 		log.Printf("[ExecContext] Не удалось создать уникальный индекс numOrder_idx в таблице userinfo: %q", err)
 	}
 
-	query = `CREATE TABLE IF NOT EXISTS userwithdraw (userID VARCHAR (255), numOrder BIGINT unique, sumPoint FLOAT, processed_at TIMESTAMPTZ)`
+	query = `CREATE TABLE IF NOT EXISTS userwithdraw (userID VARCHAR (255), numOrder VARCHAR (255), sumPoint FLOAT, processed_at TIMESTAMPTZ)`
 
 	_, err = db.ExecContext(ctx, query)
 	if err != nil {
@@ -127,13 +127,13 @@ func (d DataBase) LoginUser(ctx context.Context, login string) (string, string, 
 	}
 
 	if !hashPassInDB.Valid {
-		return "", "", nil
+		return "", "", fmt.Errorf("Пароль не найден")
 	}
 
 	return userID, hashPassInDB.String, nil
 }
 
-func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int) error {
+func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder string) error {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -170,7 +170,7 @@ func (d DataBase) LoadOrderNum(ctx context.Context, userID string, numOrder int)
 	return nil
 }
 
-func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder int) (string, error) {
+func (d DataBase) GetUserIDtoNumOrder(ctx context.Context, numOrder string) (string, error) {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -318,7 +318,7 @@ func (d DataBase) SumWithdrawn(ctx context.Context, userID string) (float64, err
 
 }
 
-func (d DataBase) WithdrawUser(ctx context.Context, userID string, numOrder int, sumPoint float64) error {
+func (d DataBase) WithdrawUser(ctx context.Context, userID string, numOrder string, sumPoint float64) error {
 
 	ctx, cancel := context.WithTimeout(ctx, ctxTimeout)
 	defer cancel()
@@ -339,9 +339,7 @@ func (d DataBase) WithdrawUser(ctx context.Context, userID string, numOrder int,
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == pgerrcode.UniqueViolation {
 
-			numOrderStr := strconv.Itoa(numOrder)
-
-			UniqueOrderError := models.NewUniqueOrderError(numOrderStr)
+			UniqueOrderError := models.NewUniqueOrderError(numOrder)
 			return UniqueOrderError
 		}
 	}
