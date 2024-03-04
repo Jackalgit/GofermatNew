@@ -15,7 +15,6 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	//_ "github.com/jackc/pgx/v5/stdlib"
 	"log"
-	"strconv"
 	"time"
 )
 
@@ -249,13 +248,13 @@ func (d DataBase) UpdateOrderStatusInDB(ctx context.Context, dictOrderStatus map
 	}
 	defer stmt.Close()
 	for numOrder, v := range dictOrderStatus {
-		numOrderInt, err := strconv.Atoi(numOrder)
-		if err != nil {
-			log.Printf("[strconv.Atoi] %q", err)
-			return fmt.Errorf("[strconv.Atoi] %q", err)
-		}
+		//numOrderInt, err := strconv.Atoi(numOrder)
+		//if err != nil {
+		//	log.Printf("[strconv.Atoi] %q", err)
+		//	return fmt.Errorf("[strconv.Atoi] %q", err)
+		//}
 
-		_, err = stmt.ExecContext(ctx, v.Status, v.Accrual, numOrderInt)
+		_, err = stmt.ExecContext(ctx, v.Status, v.Accrual, numOrder)
 		if err != nil {
 			log.Printf("[ExecContext UpdateOrderStatusInDB] %q", err)
 			return fmt.Errorf("[ExecContext] %q", err)
