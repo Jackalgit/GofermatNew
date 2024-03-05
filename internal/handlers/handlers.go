@@ -93,18 +93,16 @@ func (g *GoferMat) Login(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusOK)
 }
 
-func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
+func (g *GoferMat) GetListOrders(w http.ResponseWriter, r *http.Request) {
 
 	ctx := r.Context()
-
 	cookie, err := r.Cookie("token")
 
 	if errors.Is(err, http.ErrNoCookie) {
 		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
 		return
 	}
-	cookieStr := cookie.Value
-	userID, err := jwt.GetUserID(cookieStr)
+	userID, err := jwt.GetUserID(cookie.Value)
 
 	if err != nil {
 		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
@@ -115,86 +113,207 @@ func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if r.Method == http.MethodGet {
-		orderList, err := g.Storage.GetListOrder(ctx, userID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		if len(orderList) == 0 {
-			w.WriteHeader(http.StatusNoContent)
-			return
-		}
-
-		orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-
-		responsListJSON, err := json.Marshal(orderListCheckStatus)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		w.Header().Set("Content-type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		w.Write(responsListJSON)
-
+	orderList, err := g.Storage.GetListOrder(ctx, userID)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
-
 	}
 
-	if r.Method == http.MethodPost {
+	if len(orderList) == 0 {
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
 
-		numOrder, err := io.ReadAll(r.Body)
+	orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-		if err != nil {
-			log.Println("Read numOrder ERROR: ", err)
-		}
-		if string(numOrder) == "" {
-			http.Error(w, "номер заказа не передан в запросе", http.StatusBadRequest)
-			return
-		}
+	err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-		valid, err := luhn.IsValid(string(numOrder))
-		if err != nil {
-			http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
-			return
-		}
-		if !valid {
-			http.Error(w, "неверный номер заказа", http.StatusUnprocessableEntity)
-			return
-		}
+	responsListJSON, err := json.Marshal(orderListCheckStatus)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	w.Write(responsListJSON)
 
-		if err := g.Storage.LoadOrderNum(ctx, userID, string(numOrder)); err != nil {
-			var UserOrderUnique *models.UserIDUniqueOrderError
-			if errors.As(err, &UserOrderUnique) {
-				if err.Error() == userID {
-					w.WriteHeader(http.StatusOK)
-					return
-				} else {
-					http.Error(w, "номер заказа загружен другим пользователем", http.StatusConflict)
-					return
-				}
+	return
+
+}
+
+func (g *GoferMat) AddOrder(w http.ResponseWriter, r *http.Request) {
+
+	ctx := r.Context()
+
+	cookie, err := r.Cookie("token")
+
+	if errors.Is(err, http.ErrNoCookie) {
+		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
+		return
+	}
+	userID, err := jwt.GetUserID(cookie.Value)
+
+	if err != nil {
+		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
+		return
+	}
+	if userID == "" {
+		http.Error(w, "No User ID in token", http.StatusUnauthorized)
+		return
+	}
+
+	numOrder, err := io.ReadAll(r.Body)
+
+	if err != nil {
+		log.Println("Read numOrder ERROR: ", err)
+	}
+	if string(numOrder) == "" {
+		http.Error(w, "номер заказа не передан в запросе", http.StatusBadRequest)
+		return
+	}
+
+	valid, err := luhn.IsValid(string(numOrder))
+	if err != nil {
+		http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
+		return
+	}
+	if !valid {
+		http.Error(w, "неверный номер заказа", http.StatusUnprocessableEntity)
+		return
+	}
+
+	if err := g.Storage.LoadOrderNum(ctx, userID, string(numOrder)); err != nil {
+		var UserOrderUnique *models.UserIDUniqueOrderError
+		if errors.As(err, &UserOrderUnique) {
+			if err.Error() == userID {
+				w.WriteHeader(http.StatusOK)
+				return
 			} else {
-				log.Printf("[LoadOrderNum] %q", err)
-				http.Error(w, "повторите запрос позже", http.StatusNoContent)
+				http.Error(w, "номер заказа загружен другим пользователем", http.StatusConflict)
 				return
 			}
+		} else {
+			log.Printf("[LoadOrderNum] %q", err)
+			http.Error(w, "повторите запрос позже", http.StatusNoContent)
+			return
 		}
-		w.WriteHeader(http.StatusAccepted)
-
-		return
 	}
+	w.WriteHeader(http.StatusAccepted)
+
+	return
+
 }
+
+//func (g *GoferMat) ListOrders(w http.ResponseWriter, r *http.Request) {
+//
+//	ctx := r.Context()
+//
+//	cookie, err := r.Cookie("token")
+//
+//	if errors.Is(err, http.ErrNoCookie) {
+//		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
+//		return
+//	}
+//	cookieStr := cookie.Value
+//	userID, err := jwt.GetUserID(cookieStr)
+//
+//	if err != nil {
+//		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
+//		return
+//	}
+//	if userID == "" {
+//		http.Error(w, "No User ID in token", http.StatusUnauthorized)
+//		return
+//	}
+//
+//	if r.Method == http.MethodGet {
+//		orderList, err := g.Storage.GetListOrder(ctx, userID)
+//		if err != nil {
+//			http.Error(w, err.Error(), http.StatusInternalServerError)
+//			return
+//		}
+//
+//		if len(orderList) == 0 {
+//			w.WriteHeader(http.StatusNoContent)
+//			return
+//		}
+//
+//		orderListCheckStatus, dictOrderStatusForUpdateDB, err := loyaltysystem.CheckStatusOrder(orderList)
+//		if err != nil {
+//			http.Error(w, err.Error(), http.StatusInternalServerError)
+//			return
+//		}
+//
+//		err = g.Storage.UpdateOrderStatusInDB(ctx, dictOrderStatusForUpdateDB)
+//		if err != nil {
+//			http.Error(w, err.Error(), http.StatusInternalServerError)
+//			return
+//		}
+//
+//		responsListJSON, err := json.Marshal(orderListCheckStatus)
+//		if err != nil {
+//			http.Error(w, err.Error(), http.StatusInternalServerError)
+//			return
+//		}
+//		w.Header().Set("Content-type", "application/json")
+//		w.WriteHeader(http.StatusOK)
+//		w.Write(responsListJSON)
+//
+//		return
+//
+//	}
+//
+//	if r.Method == http.MethodPost {
+//
+//		numOrder, err := io.ReadAll(r.Body)
+//
+//		if err != nil {
+//			log.Println("Read numOrder ERROR: ", err)
+//		}
+//		if string(numOrder) == "" {
+//			http.Error(w, "номер заказа не передан в запросе", http.StatusBadRequest)
+//			return
+//		}
+//
+//		valid, err := luhn.IsValid(string(numOrder))
+//		if err != nil {
+//			http.Error(w, "номер заказа не цифровой формат", http.StatusBadRequest)
+//			return
+//		}
+//		if !valid {
+//			http.Error(w, "неверный номер заказа", http.StatusUnprocessableEntity)
+//			return
+//		}
+//
+//		if err := g.Storage.LoadOrderNum(ctx, userID, string(numOrder)); err != nil {
+//			var UserOrderUnique *models.UserIDUniqueOrderError
+//			if errors.As(err, &UserOrderUnique) {
+//				if err.Error() == userID {
+//					w.WriteHeader(http.StatusOK)
+//					return
+//				} else {
+//					http.Error(w, "номер заказа загружен другим пользователем", http.StatusConflict)
+//					return
+//				}
+//			} else {
+//				log.Printf("[LoadOrderNum] %q", err)
+//				http.Error(w, "повторите запрос позже", http.StatusNoContent)
+//				return
+//			}
+//		}
+//		w.WriteHeader(http.StatusAccepted)
+//
+//		return
+//	}
+//}
 
 func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 
@@ -206,8 +325,7 @@ func (g *GoferMat) Balance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
 		return
 	}
-	cookieStr := cookie.Value
-	userID, err := jwt.GetUserID(cookieStr)
+	userID, err := jwt.GetUserID(cookie.Value)
 
 	if err != nil {
 		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
@@ -267,8 +385,7 @@ func (g *GoferMat) Withdraw(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
 		return
 	}
-	cookieStr := cookie.Value
-	userID, err := jwt.GetUserID(cookieStr)
+	userID, err := jwt.GetUserID(cookie.Value)
 
 	if err != nil {
 		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
@@ -353,8 +470,7 @@ func (g *GoferMat) Withdrawals(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "[Orders] No Cookie", http.StatusUnauthorized)
 		return
 	}
-	cookieStr := cookie.Value
-	userID, err := jwt.GetUserID(cookieStr)
+	userID, err := jwt.GetUserID(cookie.Value)
 
 	if err != nil {
 		http.Error(w, "[Orders] Token is not valid", http.StatusUnauthorized)
